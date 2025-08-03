@@ -40,10 +40,12 @@ try:
     # 初期化処理（「initialize.py」の「initialize」関数を実行）
     initialize()
 except Exception as e:
-    # エラーログの出力
+    # エラーログの出力（ログファイルやCloudのログにも残す）
     logger.error(f"{ct.INITIALIZE_ERROR_MESSAGE}\n{e}")
-    # エラーメッセージの画面表示
+    # エラーメッセージの画面表示（一般ユーザー向け）
     st.error(utils.build_error_message(ct.INITIALIZE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
+    # エラーの詳細を画面に表示（開発者向け、デバッグ用）
+    st.exception(e)
     # 後続の処理を中断
     st.stop()
 
