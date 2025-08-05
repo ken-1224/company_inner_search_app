@@ -1,6 +1,6 @@
-"""
+'''
 このファイルは、画面表示に特化した関数定義のファイルです。
-"""
+'''
 
 ############################################################
 # ライブラリの読み込み
@@ -20,7 +20,6 @@ def display_app_title():
     """
     st.markdown(f"## {ct.APP_NAME}")
 
-
 def display_select_mode():
     """
     回答モードのラジオボタンを表示（サイドバーに移動）
@@ -30,7 +29,6 @@ def display_select_mode():
         options=[ct.ANSWER_MODE_1, ct.ANSWER_MODE_2],
         key="mode"
     )
-
 
 def display_initial_ai_message():
     """
@@ -52,7 +50,6 @@ def display_initial_ai_message():
         st.markdown("### 『社内問い合わせ』を選択した場合")
         st.info("質問・要望に対して、社内文書の情報をもとに回答を得られます。")
         st.markdown("【入力例】人事部に所属している従業員情報を一覧化して")
-
 
 def display_conversation_log():
     """
@@ -89,4 +86,12 @@ def display_conversation_log():
                         st.markdown(f"##### {message['content']['message']}")
                         for file_info in message["content"]["file_info_list"]:
                             icon = utils.get_source_icon(file_info)
-                            st.info(file_info, icon=icon)
+                            if isinstance(file_info, dict):
+                                source = file_info.get("source", "")
+                                page = file_info.get("page_number", None)
+                                if source.endswith(".pdf") and page is not None:
+                                    st.info(f"{source}（p.{page}）", icon=icon)
+                                else:
+                                    st.info(source or str(file_info), icon=icon)
+                            else:
+                                st.info(file_info, icon=icon)

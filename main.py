@@ -113,12 +113,17 @@ if chat_message:
         try:
             # 画面読み込み時に作成したRetrieverを使い、Chainを実行
             llm_response = utils.get_llm_response(chat_message)
+            # ★ここで返り値をログ出力（デバッグ用）
+            logger.info(f"🧪 get_llm_response の結果: {llm_response}")
+        except ValueError as ve:
+            # 想定されるエラー（文書が見つからないなど）
+            logger.warning(f"{ct.GET_LLM_RESPONSE_ERROR_MESSAGE}\n{ve}")
+            st.warning(str(ve), icon=ct.WARNING_ICON)
+            st.stop()
         except Exception as e:
-            # エラーログの出力
+            # 想定外のエラー
             logger.error(f"{ct.GET_LLM_RESPONSE_ERROR_MESSAGE}\n{e}")
-            # エラーメッセージの画面表示
             st.error(utils.build_error_message(ct.GET_LLM_RESPONSE_ERROR_MESSAGE), icon=ct.ERROR_ICON)
-            # 後続の処理を中断
             st.stop()
     
     # ==========================================

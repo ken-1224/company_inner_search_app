@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 import streamlit as st
 from docx import Document
 from langchain_community.document_loaders import WebBaseLoader
-from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 import constants as ct
@@ -122,17 +122,23 @@ def initialize_retriever():
     embeddings = OpenAIEmbeddings()
     
     # チャンク分割用のオブジェクトを作成
-    text_splitter = CharacterTextSplitter(
-        chunk_size=ct.CHUNK_SIZE,
-        chunk_overlap=ct.CHUNK_OVERLAP,
-        separator="\n"
-    )
+    text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=ct.CHUNK_SIZE,
+    chunk_overlap=ct.CHUNK_OVERLAP,
+    separators=["\n\n", "\n", ".", "。", "、", " "],  # より細かな分割に対応
+)
 
     # チャンク分割を実施
     splitted_docs = text_splitter.split_documents(docs_all)
 
-    # ベクターストアの作成
-    db = Chroma.from_documents(splitted_docs, embedding=embeddings)
+    # ベクターストアの保存先ディレクトリ
+    VECTOR_DIR = ct.VECTOR_STORE_DIR
+
+    if os.path.exists(VECTOR_DIR):
+        db = Chroma(persist_directory=VECTOR_DIR, embedding_function=embeddings)
+    else:
+        db = Chroma.from_documents(splitted_docs, embedding=embeddings, persist_directory=VECTOR_DIR)
+        db.persist()
 
     # ベクターストアを検索するRetrieverの作成
     st.session_state.retriever = db.as_retriever(search_kwargs={"k": 5})
@@ -214,10 +220,25 @@ def file_load(path, docs_all):
 
     # 想定していたファイル形式の場合のみ読み込む
     if file_extension in ct.SUPPORTED_EXTENSIONS:
-        # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
-        loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
-        docs = loader.load()
-        docs_all.extend(docs)
+        try:
+            # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
+            loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
+            docs = loader.load()
+
+            # 不自然なメタ情報を含むpage_contentをフィルタ除去
+            cleaned_docs = []
+            for doc in docs:
+                content = doc.page_content.strip()
+                # 1. {「 で始まる構造を除去（PDFメタ情報）
+                # 2. あまりに短すぎるもの（ノイズ）を除去
+                if not content.startswith("{「") and len(content) > 50:
+                    cleaned_docs.append(doc)
+
+            docs_all.extend(cleaned_docs)
+
+        except Exception as e:
+            logging.getLogger(ct.LOGGER_NAME).error(f"Error loading {path}: {e}")
+            # エラー時は処理を続ける（クラッシュさせない）
 
 
 def adjust_string(s):
